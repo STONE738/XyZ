@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="manifest.json">
+  <title>Tools — Phúc Bùi (PWA)</title>
+  <style>
+    /* ---- macOS-like clean Grok-style layout (minimal) ---- */
+    :root{
+      --bg:#0f1720; --panel:#0b1220; --muted:#9aa4b2; --accent:#0ea5e9;
+      --glass: rgba(255,255,255,0.03);
+      --white: #e6eef8;
+      --shadow: 0 8px 24px rgba(2,6,23,0.6);
+    }
+    html,body,#app{height:100%;margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
+    body{background:linear-gradient(180deg,#071024 0%, #07111a 60%); color:var(--white); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;}
+    #app{display:flex;flex-direction:row;height:100vh;overflow:hidden}
+    /* Sidebar - Grok like */
+    .sidebar{width:320px;padding:18px;border-right:1px solid rgba(255,255,255,0.03);background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); display:flex;flex-direction:column;gap:12px}
+    .brand{display:flex;align-items:center;gap:10px}
+    .logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#06b6d4,#0ea5e9);box-shadow:0 6px 18px rgba(14,165,233,0.12)}
+    .title{font-weight:700;font-size:15px}
+    .controls{display:flex;gap:8px;margin-left:auto}
+    .small{font-size:12px;color:var(--muted)}
+    .side-section{background:transparent;flex:1;overflow:auto;padding-right:6px}
+    .list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+    .list .item{padding:10px;border-radius:8px;background:transparent;cursor:pointer;border:1px solid transparent}
+    .list .item:hover{background:rgba(255,255,255,0.02)}
+    .list .item.active{background:linear-gradient(90deg, rgba(14,165,233,0.12), rgba(14,165,233,0.06));border-color:rgba(14,165,233,0.18);font-weight:600}
+    .muted{color:var(--muted)}
+    .btn{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px 10px;border-radius:8px;color:var(--white);cursor:pointer}
+    .btn.primary{background:linear-gradient(90deg,#06b6d4,#0ea5e9);color:#022; border:0}
+    .small-ghost{font-size:12px;color:var(--muted);padding:6px}
+    .search{display:flex;gap:8px;align-items:center;margin-top:10px}
+    .input{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:var(--white);width:100%}
+    /* Main content */
+    .main{flex:1;display:flex;flex-direction:column;height:100vh;overflow:auto;align-items:stretch}
+    .topbar{height:64px;display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.02);backdrop-filter: blur(6px)}
+    .topbar .page-title{font-weight:700;font-size:16px}
+    .workspace{flex:1;display:grid;grid-template-columns:1fr 420px;gap:18px;padding:18px;align-items:start}
+    /* editor */
+    .editor-card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:12px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,0.03);display:flex;flex-direction:column;height:calc(100% - 24px)}
+    .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+    textarea#editor{flex:1;background:transparent;color:var(--white);border:1px solid rgba(255,255,255,0.03);border-radius:8px;padding:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Roboto Mono,monospace;font-size:13px;min-height:320px;resize:vertical}
+    .preview-card{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));border-radius:12px;padding:10px;border:1px solid rgba(255,255,255,0.02);box-shadow:var(--shadow);height:100%}
+    .preview-iframe{width:100%;height:100%;border:0;border-radius:8px;background:#fff}
+    .meta-row{display:flex;gap:8px;align-items:center;margin-top:10px}
+    .config{display:flex;gap:8px;align-items:center}
+    .config input{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:var(--white)}
+    .hint{font-size:12px;color:var(--muted)}
+    /* Mobile responsive (single column + full screen preview) */
+    @media (max-width:980px){
+      .sidebar{width:100%;height:auto;position:fixed;left:0;top:0;z-index:40;padding:12px;display:flex;flex-direction:row;gap:8px;overflow:auto}
+      .main{margin-top:64px}
+      .workspace{grid-template-columns:1fr;height:calc(100vh - 64px);padding:10px}
+      .preview-card{height:50vh}
+      textarea#editor{min-height:220px}
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar" id="sidebar">
+      <div style="display:flex;align-items:center;gap:8px;width:100%">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <div class="title">Phúc Bùi Tools</div>
+          <div class="small muted">PWA • Upload to GitHub</div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn" id="btnOpenConfig" title="Cấu hình repo">Config</button>
+        </div>
+      </div>
+
+      <div class="search">
+        <input id="searchInput" class="input" placeholder="Tìm tool..." />
+      </div>
+
+      <div class="side-section">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="small-ghost">TOOLS</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" id="btnNewTool">+ Tool</button>
+            <button class="btn" id="btnNewFromUrl" title="Import từ URL">Import</button>
+          </div>
+        </div>
+        <div class="list" id="toolsList"></div>
+
+        <div style="height:18px"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="small-ghost">PROJECTS</div>
+          <button class="btn" id="btnNewProject">+ Project</button>
+        </div>
+        <div class="list" id="projectsList"></div>
+
+        <div style="height:14px"></div>
+        <div class="hint">Lưu: <b>Upload lên GitHub</b><br>Không lưu cục bộ.</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="page-title" id="pageTitle">Workspace</div>
+        <div style="flex:1"></div>
+        <div class="config">
+          <input id="inputOwner" placeholder="owner (user/org)" />
+          <input id="inputRepo" placeholder="repo" />
+          <input id="inputBranch" placeholder="branch (main)" />
+          <input id="inputToken" placeholder="GitHub PAT" type="password" />
+          <button class="btn primary" id="btnSaveConfig">Save</button>
+        </div>
+      </div>
+
+      <div class="workspace">
+        <div class="editor-card">
+          <div class="toolbar">
+            <button class="btn" id="btnRender">Render</button>
+            <button class="btn" id="btnSave">Save → GitHub</button>
+            <button class="btn" id="btnAddFilePath">Set filename</button>
+            <div style="flex:1"></div>
+            <div class="hint" id="statusHint">Chuẩn bị</div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+            <input id="inputFilename" placeholder="vd: tools/2d_timeline.html" style="flex:1" class="input" />
+            <select id="selectProject" class="input" style="width:180px">
+              <option value="">— Gán project —</option>
+            </select>
+          </div>
+
+          <textarea id="editor" placeholder="Dán toàn bộ HTML/JS/CSS tool (ví dụ: toàn bộ file .html)."></textarea>
+
+          <div class="meta-row">
+            <div class="hint">Tip: để chạy JS nội bộ, include script inline trong file HTML (đã sandbox trong preview).</div>
+            <div style="flex:1"></div>
+            <div class="hint">Mọi lần Save sẽ commit vào repo bạn cấu hình.</div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="preview-card">
+            <div style="font-weight:600;margin-bottom:8px">Preview</div>
+            <iframe id="preview" class="preview-iframe" sandbox="allow-scripts allow-same-origin"></iframe>
+          </div>
+
+          <div style="background:linear-gradient(90deg, rgba(255,255,255,0.02), transparent);padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.02)">
+            <div style="font-weight:700;margin-bottom:6px">File & Project Info</div>
+            <div class="small muted">Current file path: <span id="curFile">—</span></div>
+            <div class="small muted">Active project: <span id="curProject">—</span></div>
+            <div style="height:8px"></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn" id="btnOpenRepo">Open repo</button>
+              <button class="btn" id="btnListRepo">List repo files</button>
+            </div>
+            <div id="repoResult" style="margin-top:8px;color:var(--muted);font-size:13px"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+  /*
+    Behaviour summary:
+    - Keep no tool content in localStorage.
+    - Config (owner/repo/branch/token) is kept only in sessionStorage for convenience (token not persisted if user clears or uses private).
+    - Save button will create/update a file in the configured repo using the GitHub REST API.
+    - Projects are stored in repo under path "projects/<projectId>.json" (created/updated by the UI). Each project JSON holds {id, title, files: [<paths>]}.
+    - NOTE: User must provide a GitHub Personal Access Token (PAT) with correct scope:
+      - public repo: `public_repo` is sufficient for public repos.
+      - private repo or full control: `repo` scope needed.
+    - Security: Do NOT share your PAT. This page holds the PAT in-memory (sessionStorage) for your convenience.
+  */
+
+  // Utilities
+  const $ = sel => document.querySelector(sel);
+  const _ = el => document.createElement(el);
+
+  // Elements
+  const editor = $('#editor');
+  const preview = $('#preview');
+  const btnRender = $('#btnRender');
+  const btnSave = $('#btnSave');
+  const inputFilename = $('#inputFilename');
+  const inputOwner = $('#inputOwner');
+  const inputRepo = $('#inputRepo');
+  const inputBranch = $('#inputBranch');
+  const inputToken = $('#inputToken');
+  const btnSaveConfig = $('#btnSaveConfig');
+  const btnNewTool = $('#btnNewTool');
+  const toolsList = $('#toolsList');
+  const projectsList = $('#projectsList');
+  const btnNewProject = $('#btnNewProject');
+  const selectProject = $('#selectProject');
+  const statusHint = $('#statusHint');
+  const curFile = $('#curFile');
+  const curProject = $('#curProject');
+  const btnListRepo = $('#btnListRepo');
+  const repoResult = $('#repoResult');
+  const btnOpenRepo = $('#btnOpenRepo');
+
+  // State in-memory (no localStorage for tool contents)
+  let state = {
+    tools: [],      // {title, path}
+    projects: [],   // {id, title, files: []}
+    activeTool: null,
+    activeProject: null
+  };
+
+  // Load config from sessionStorage (owner, repo, branch, token) for convenience
+  function loadConfig(){
+    try{
+      const cfg = JSON.parse(sessionStorage.getItem('phuc_tools_cfg') || '{}');
+      inputOwner.value = cfg.owner || '';
+      inputRepo.value = cfg.repo || '';
+      inputBranch.value = cfg.branch || 'main';
+      inputToken.value = cfg.token || '';
+    }catch(e){ }
+  }
+  function saveConfig(){
+    const cfg = {owner: inputOwner.value.trim(), repo: inputRepo.value.trim(), branch: inputBranch.value.trim() || 'main', token: inputToken.value};
+    sessionStorage.setItem('phuc_tools_cfg', JSON.stringify(cfg));
+    alert('Cấu hình đã lưu (chỉ lưu tạm trong session).');
+  }
+
+  loadConfig();
+
+  // Render preview
+  btnRender.addEventListener('click', ()=> {
+    preview.srcdoc = editor.value || '<p style="padding:12px">No content</p>';
+    statusHint.textContent = 'Rendered';
+  });
+
+  // Basic UI for adding tools/projects (local metadata only; actual files are saved to GitHub)
+  function renderLists(){
+    toolsList.innerHTML = '';
+    state.tools.forEach((t,idx)=>{
+      const d = _('div'); d.className = 'item'+(state.activeTool===idx?' active':''); d.textContent = t.title+' → '+t.path;
+      d.title = 'Click để chọn tool • Double click để đổi tên';
+      d.addEventListener('click', ()=>{ openTool(idx); });
+      d.addEventListener('dblclick', ()=>{ renameTool(idx, d); });
+      toolsList.appendChild(d);
+    });
+
+    projectsList.innerHTML = '';
+    selectProject.innerHTML = '<option value="">— Gán project —</option>';
+    state.projects.forEach((p,idx)=>{
+      const d = _('div'); d.className='item'; d.textContent = p.title + ' ('+p.files.length+')';
+      d.addEventListener('click', ()=>{ openProject(idx); });
+      projectsList.appendChild(d);
+
+      const opt = _('option'); opt.value = p.id; opt.textContent = p.title; selectProject.appendChild(opt);
+    });
+
+    curFile.textContent = inputFilename.value || '—';
+    curProject.textContent = state.activeProject ? state.projects[state.activeProject].title : '—';
+  }
+
+  function renameTool(i, el){
+    const input = _('input'); input.value = state.tools[i].title; input.style.width='100%';
+    el.innerHTML=''; el.appendChild(input); input.focus();
+    input.addEventListener('blur', ()=>{ state.tools[i].title = input.value || state.tools[i].title; renderLists(); });
+    input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') input.blur(); });
+  }
+
+  function openTool(i){
+    state.activeTool = i;
+    inputFilename.value = state.tools[i].path || '';
+    editor.value = ''; // empty until user loads file from repo
+    preview.srcdoc = '<p style="padding:12px">Nhớ nhấn Load from GitHub để lấy nội dung file nếu đã có.</p>';
+    renderLists();
+  }
+
+  function openProject(i){
+    state.activeProject = i;
+    curProject.textContent = state.projects[i].title;
+    renderLists();
+  }
+
+  btnNewTool.addEventListener('click', ()=>{
+    const title = prompt('Tên tool (hiển thị):','New Tool');
+    if(!title) return;
+    const path = prompt('Đường dẫn file trong repo (vd: tools/my_tool.html)','tools/'+title.toLowerCase().replace(/\s+/g,'_')+'.html');
+    if(!path) return;
+    state.tools.unshift({title, path});
+    state.activeTool = 0;
+    renderLists();
+  });
+
+  btnNewProject.addEventListener('click', ()=>{
+    const title = prompt('Tên Project:','New Project');
+    if(!title) return;
+    const id = 'proj_'+Math.random().toString(36).slice(2,9);
+    state.projects.unshift({id, title, files: []});
+    state.activeProject = 0;
+    renderLists();
+  });
+
+  // GitHub API helpers
+  function getCfg(){ return {owner: inputOwner.value.trim(), repo: inputRepo.value.trim(), branch: inputBranch.value.trim() || 'main', token: inputToken.value} }
+  function githubHeaders(){ const cfg=getCfg(); return { Authorization: 'token '+cfg.token, Accept: 'application/vnd.github.v3+json', 'Content-Type':'application/json'} }
+
+  async function getFileSha(path){
+    const cfg = getCfg();
+    const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(path)}?ref=${cfg.branch}`;
+    const res = await fetch(url, {headers: githubHeaders()});
+    if(res.status===200){
+      const j = await res.json();
+      return j.sha;
+    }
+    return null;
+  }
+
+  async function loadFileFromRepo(path){
+    const cfg = getCfg();
+    const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(path)}?ref=${cfg.branch}`;
+    const res = await fetch(url, {headers: githubHeaders()});
+    if(res.status===200){
+      const j = await res.json();
+      const content = atob(j.content.replace(/\\n/g,'')); // base64 decode
+      return {content, sha:j.sha};
+    } else {
+      throw new Error('Không tìm thấy file (status '+res.status+')');
+    }
+  }
+
+  async function putFileToRepo(path, content, message, sha=null){
+    const cfg = getCfg();
+    const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(path)}`;
+    const body = {
+      message: message || `Update ${path} via Tools UI`,
+      content: btoa(unescape(encodeURIComponent(content))),
+      branch: cfg.branch
+    };
+    if(sha) body.sha = sha;
+    const res = await fetch(url, {method:'PUT', headers: githubHeaders(), body: JSON.stringify(body)});
+    if(!res.ok) throw new Error('GitHub API error: '+res.status+' '+await res.text());
+    return await res.json();
+  }
+
+  // Save to GitHub: if file exists, update (need sha), else create
+  btnSave.addEventListener('click', async ()=>{
+    const cfg = getCfg();
+    if(!cfg.owner || !cfg.repo || !cfg.token){ alert('Vui lòng cấu hình owner/repo/token trước.'); return; }
+    const path = inputFilename.value.trim();
+    if(!path){ alert('Vui lòng nhập đường dẫn file trong repo (vd: tools/my_tool.html)'); inputFilename.focus(); return; }
+    const content = editor.value || '<!-- empty -->';
+    statusHint.textContent = 'Uploading...';
+    try{
+      const sha = await getFileSha(path);
+      if(sha){
+        await putFileToRepo(path, content, `Update ${path} via Tools UI`, sha);
+      } else {
+        await putFileToRepo(path, content, `Create ${path} via Tools UI`);
+      }
+      statusHint.textContent = 'Uploaded ✓';
+      curFile.textContent = path;
+
+      // If user selected a project to add file to, update project file in repo (projects/<id>.json)
+      const selectedProjectId = selectProject.value;
+      if(selectedProjectId){
+        const proj = state.projects.find(p => p.id === selectedProjectId);
+        if(proj){
+          // ensure path in list
+          if(!proj.files.includes(path)) proj.files.push(path);
+          // upload project JSON to repo under projects/<id>.json
+          const projPath = `projects/${proj.id}.json`;
+          const projContent = JSON.stringify(proj, null, 2);
+          const projSha = await getFileSha(projPath);
+          if(projSha){
+            await putFileToRepo(projPath, projContent, `Update project ${proj.title}`, projSha);
+          } else {
+            await putFileToRepo(projPath, projContent, `Create project ${proj.title}`);
+          }
+          statusHint.textContent = 'Uploaded + Project updated';
+        }
+      }
+    }catch(err){
+      console.error(err);
+      alert('Upload lỗi: ' + err.message);
+      statusHint.textContent = 'Upload lỗi';
+    }
+  });
+
+  // Load file from GitHub into editor
+  async function loadActiveToolContent(){
+    const path = inputFilename.value.trim();
+    if(!path){ alert('Nhập path file trước'); return; }
+    const cfg = getCfg();
+    if(!cfg.owner || !cfg.repo || !cfg.token){ alert('Vui lòng cấu hình owner/repo/token trước.'); return; }
+    try{
+      statusHint.textContent = 'Loading...';
+      const {content} = await loadFileFromRepo(path);
+      editor.value = content;
+      preview.srcdoc = content;
+      statusHint.textContent = 'Loaded';
+    }catch(err){
+      alert('Load lỗi: ' + err.message);
+      statusHint.textContent = 'Load lỗi';
+    }
+  }
+
+  // Button to list repo root files (simple)
+  btnListRepo.addEventListener('click', async ()=>{
+    const cfg = getCfg();
+    if(!cfg.owner||!cfg.repo||!cfg.token){ alert('Cấu hình repo/token trước'); return; }
+    const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/git/trees/${cfg.branch}?recursive=1`;
+    try{
+      const res = await fetch(url, {headers: githubHeaders()});
+      if(!res.ok) throw new Error('Status '+res.status);
+      const j = await res.json();
+      const paths = j.tree.map(item => item.path).slice(0,200);
+      repoResult.textContent = 'Files: ' + paths.slice(0,50).join(', ');
+    }catch(err){
+      repoResult.textContent = 'Error: ' + err.message;
+    }
+  });
+
+  btnOpenRepo.addEventListener('click', ()=>{
+    const cfg = getCfg();
+    if(cfg.owner && cfg.repo){
+      window.open(`https://github.com/${cfg.owner}/${cfg.repo}`, '_blank');
+    } else alert('Cấu hình repo trước.');
+  });
+
+  // import from URL (simple fetch)
+  $('#btnNewFromUrl').addEventListener('click', async ()=>{
+    const url = prompt('Nhập URL file html (raw) để import:');
+    if(!url) return;
+    try{
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('Không tải được');
+      const text = await res.text();
+      // prefill editor and filename suggestion
+      editor.value = text;
+      const suggested = url.split('/').pop().split('?')[0] || 'imported.html';
+      inputFilename.value = 'tools/' + suggested;
+      statusHint.textContent = 'Imported from URL';
+    }catch(e){
+      alert('Import lỗi: ' + e.message);
+    }
+  });
+
+  // Save config
+  btnSaveConfig.addEventListener('click', saveConfig);
+
+  // convenience: Load file from repo if user clicks filename input (with ctrl)
+  inputFilename.addEventListener('dblclick', loadActiveToolContent);
+
+  // init lists
+  renderLists();
+
+  // On page load, try to register service worker
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').then(()=> console.log('SW registered')).catch(e=> console.warn('SW failed', e));
+  }
+
+  </script>
+</body>
+</html>
